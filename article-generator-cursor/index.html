@@ -219,29 +219,6 @@
       });
     });
 
-    // Utility to generate a random short ID
-    function randomID(length = 6) {
-      return Math.random().toString(36).substr(2, length);
-    }
-
-    // Utility to save a file locally (browser download)
-    function saveMarkdownFile(content, date) {
-      const id = randomID();
-      const filename = `article-${date}-${id}.md`;
-      // Path for user reference, but browsers only save to Downloads
-      const fullPath = `src/content/blog/${filename}`;
-      const blob = new Blob([content], { type: 'text/markdown' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = fullPath;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-      }, 100);
-    }
-
     // Utility to update progress display
     function setProgress(msg) {
       document.getElementById('progress').textContent = msg;
@@ -263,71 +240,32 @@
         repo: form.repo.value,
         branch: form.branch.value
       };
+      
       const total = data.numArticles;
-      let finished = 0;
-      for (let i = 0; i < total; i++) {
-        setProgress(`Generating article ${i+1} of ${total}...`);
-        const markdown = await generateArticleMarkdown(data);
-        if (markdown) {
-          const today = new Date().toISOString().slice(0, 10);
-          saveMarkdownFile(markdown, today);
-          finished++;
-        }
-      }
-      setProgress(`✅ Finished generating ${finished} article${finished !== 1 ? 's' : ''}.`);
-      alert('Article generation complete!');
-    });
-
-    /**
-     * Generates an article using OpenAI API and returns cleaned Markdown.
-     * @param {Object} data - Form data
-     * @returns {Promise<string>} Markdown content
-     */
-    async function generateArticleMarkdown(data) {
-      const { model, prompt, affiliateLinks, tone, tags, openaiKey } = data;
-      // Compose the system and user prompt
-      const today = new Date().toISOString().slice(0, 10);
-      const systemPrompt = `You are an expert article writer. Write a high-quality article in Markdown with YAML frontmatter. Structure:\n---\ntitle: <title>\ndescription: <description>\ntags: [${tags.join(', ')}]\ncover: <cover image url or leave blank>\ndate: ${today}\n---\n\n# <title>\n\n<description>\n\n<markdown content>\n\nDo not include repeated 'Title:' or 'Summary:' in the content. Do not use bold markers (**).`;
-      let affiliateSection = '';
-      if (affiliateLinks.length > 0) {
-        affiliateSection = '\n\n## Affiliate Links\n' + affiliateLinks.map(l => `- ${l}`).join('\n');
-      }
-      const userPrompt = `${prompt}\n\nTone: ${tone}.${affiliateSection}`;
+      setProgress(`Starting generation of ${total} article${total !== 1 ? 's' : ''}...`);
+      
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const response = await fetch('/api/generate', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openaiKey}`
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            model: model === 'gpt-4' ? 'gpt-4' : 'gpt-3.5-turbo',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            max_tokens: 2048,
-            temperature: 0.7
-          })
+          body: JSON.stringify(data)
         });
+        
         if (!response.ok) {
-          alert('OpenAI API error: ' + response.statusText);
-          return '';
+          const error = await response.json();
+          throw new Error(error.error || 'Generation failed');
         }
+        
         const result = await response.json();
-        let content = result.choices?.[0]?.message?.content || '';
-        // Clean up: remove repeated 'Title:' or 'Summary:'
-        content = content.replace(/^(#+\s*)?(Title|Summary):.*$/gim, '');
-        // Remove bold markers
-        content = content.replace(/\*\*(.*?)\*\*/g, '$1');
-        // Remove extra blank lines
-        content = content.replace(/\n{3,}/g, '\n\n');
-        return content.trim();
-      } catch (err) {
-        alert('Failed to generate article: ' + err.message);
-        return '';
+        setProgress(`✅ ${result.message}`);
+        alert('Articles generated and uploaded to GitHub successfully!');
+      } catch (error) {
+        setProgress(`❌ Error: ${error.message}`);
+        alert('Generation failed: ' + error.message);
       }
-    }
+    });
   </script>
 </body>
 </html> 
