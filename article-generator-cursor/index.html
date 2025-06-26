@@ -109,70 +109,170 @@
     .generate-btn:hover {
       background: #059669;
     }
+    
+    /* Login Form Styles */
+    .login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #f7f9fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .login-form {
+      background: #fff;
+      padding: 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+    .login-form h1 {
+      margin-bottom: 1.5rem;
+      color: #222;
+      font-size: 1.8rem;
+    }
+    .login-form input[type="password"] {
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+      padding: 0.8rem;
+    }
+    .login-btn {
+      width: 100%;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.8rem;
+      font-size: 1.1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .login-btn:hover {
+      background: #4338ca;
+    }
+    .error-message {
+      color: #ef4444;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .main-content {
+      display: none;
+    }
+    .main-content.show {
+      display: flex;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+    }
+    
     @media (max-width: 600px) {
       .container {
         padding: 1rem 0.5rem;
         max-width: 98vw;
       }
+      .login-form {
+        padding: 2rem 1.5rem;
+        width: 95%;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="progress" style="text-align:center; font-size:1.1rem; margin-bottom:1rem;"></div>
-  <div class="container">
-    <h2>Article Generator</h2>
-    <form id="generator-form" autocomplete="off">
-      <label for="model">Model</label>
-      <select id="model" name="model" required>
-        <option value="gpt-4">GPT-4</option>
-        <option value="gpt-3.5">GPT-3.5</option>
-      </select>
+  <!-- Login Form -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-form">
+      <h1>Enter Password</h1>
+      <form id="loginForm">
+        <input type="password" id="passwordInput" placeholder="Enter your password" required>
+        <button type="submit" class="login-btn">Submit</button>
+        <div class="error-message" id="errorMessage">Incorrect password. Please try again.</div>
+      </form>
+    </div>
+  </div>
 
-      <label for="prompt">Custom Prompt</label>
-      <textarea id="prompt" name="prompt" rows="3" placeholder="Enter your custom prompt..." required></textarea>
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <div id="progress" style="text-align:center; font-size:1.1rem; margin-bottom:1rem;"></div>
+    <div class="container">
+      <h2>Article Generator</h2>
+      <form id="generator-form" autocomplete="off">
+        <label for="model">Model</label>
+        <select id="model" name="model" required>
+          <option value="gpt-4">GPT-4</option>
+          <option value="gpt-3.5">GPT-3.5</option>
+        </select>
 
-      <div class="affiliate-links">
-        <label for="affiliate-links-textarea">Affiliate Links (one per line)</label>
-        <textarea id="affiliate-links-textarea" name="affiliate-links" rows="3" placeholder="Paste each affiliate link on a new line..."></textarea>
-      </div>
+        <label for="prompt">Custom Prompt</label>
+        <textarea id="prompt" name="prompt" rows="3" placeholder="Enter your custom prompt..." required></textarea>
 
-      <label for="tone">Article Tone</label>
-      <select id="tone" name="tone" required>
-        <option value="Formal">Formal</option>
-        <option value="Casual">Casual</option>
-        <option value="Witty">Witty</option>
-      </select>
+        <div class="affiliate-links">
+          <label for="affiliate-links-textarea">Affiliate Links (one per line)</label>
+          <textarea id="affiliate-links-textarea" name="affiliate-links" rows="3" placeholder="Paste each affiliate link on a new line..."></textarea>
+        </div>
 
-      <label for="tags">Tags (comma separated)</label>
-      <input type="text" id="tags" name="tags" placeholder="e.g. ai, writing, tech" required />
+        <label for="tone">Article Tone</label>
+        <select id="tone" name="tone" required>
+          <option value="Formal">Formal</option>
+          <option value="Casual">Casual</option>
+          <option value="Witty">Witty</option>
+        </select>
 
-      <label for="num-articles">Number of Articles</label>
-      <input type="number" id="num-articles" name="num-articles" min="1" max="20" value="1" required />
+        <label for="tags">Tags (comma separated)</label>
+        <input type="text" id="tags" name="tags" placeholder="e.g. ai, writing, tech" required />
 
-      <label for="openai-key">OpenAI API Key</label>
-      <input type="password" id="openai-key" name="openai-key" autocomplete="new-password" required />
+        <label for="num-articles">Number of Articles</label>
+        <input type="number" id="num-articles" name="num-articles" min="1" max="20" value="1" required />
 
-      <label for="github-token">GitHub Token</label>
-      <input type="password" id="github-token" name="github-token" autocomplete="new-password" required />
+        <label for="openai-key">OpenAI API Key</label>
+        <input type="password" id="openai-key" name="openai-key" autocomplete="new-password" required />
 
-      <label for="repo">GitHub Repo Name</label>
-      <input type="text" id="repo" name="repo" placeholder="username/repo" required />
+        <label for="github-token">GitHub Token</label>
+        <input type="password" id="github-token" name="github-token" autocomplete="new-password" required />
 
-      <label for="branch">Branch Name</label>
-      <input type="text" id="branch" name="branch" placeholder="main" value="main" required />
+        <label for="repo">GitHub Repo Name</label>
+        <input type="text" id="repo" name="repo" placeholder="username/repo" required />
 
-      <button type="submit" class="generate-btn">Generate</button>
-    </form>
+        <label for="branch">Branch Name</label>
+        <input type="text" id="branch" name="branch" placeholder="main" value="main" required />
+
+        <button type="submit" class="generate-btn">Generate</button>
+      </form>
+    </div>
   </div>
   <script>
-    // Basic password protection
-    (function() {
-      const pw = prompt('Enter password:');
-      if (pw !== 'mySecret123') {
-        alert('Incorrect password.');
-        window.location = 'about:blank';
+    // Password protection
+    const CORRECT_PASSWORD = 'mySecret123';
+    const loginForm = document.getElementById('loginForm');
+    const loginOverlay = document.getElementById('loginOverlay');
+    const mainContent = document.getElementById('mainContent');
+    const passwordInput = document.getElementById('passwordInput');
+    const errorMessage = document.getElementById('errorMessage');
+
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const enteredPassword = passwordInput.value;
+      
+      if (enteredPassword === CORRECT_PASSWORD) {
+        // Hide login form and show main content
+        loginOverlay.style.display = 'none';
+        mainContent.classList.add('show');
+        // Focus on first form field
+        document.getElementById('model').focus();
+      } else {
+        // Show error message
+        errorMessage.style.display = 'block';
+        passwordInput.value = '';
+        passwordInput.focus();
       }
-    })();
+    });
 
     // LocalStorage keys
     const LS_KEY = 'articleGenForm';
