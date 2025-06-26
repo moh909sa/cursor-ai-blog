@@ -1,9 +1,18 @@
 {
     "build": {
-      "builder": "static"
-    },
-    "static": {
-      "publicDir": ".",
-      "index": "index.html"
+      "nixpacksPlan": {
+        "phases": {
+          "install": {
+            "cmds": []
+          },
+          "build": {
+            "cmds": []
+          },
+          "start": {
+            "cmds": ["npx serve article-generator-cursor"]
+          }
+        }
+      }
     }
   }
+  
