@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Article Generator</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f7f9fa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: #fff;
+      padding: 2rem 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+      max-width: 480px;
+      width: 100%;
+      margin: 2rem;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #222;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-weight: 500;
+      color: #333;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.6rem;
+      margin-bottom: 1.1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 1rem;
+      background: #f9fafb;
+      transition: border 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #6366f1;
+      outline: none;
+      background: #fff;
+    }
+    .affiliate-links {
+      margin-bottom: 1.1rem;
+    }
+    .affiliate-links-list {
+      margin-bottom: 0.5rem;
+    }
+    .affiliate-link-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.4rem;
+    }
+    .affiliate-link-item input {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    .affiliate-link-item button {
+      margin-left: 0.5rem;
+      background: #f87171;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.3rem 0.7rem;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    .affiliate-link-item button:hover {
+      background: #ef4444;
+    }
+    .add-link-btn {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.4rem 1rem;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 0.2rem;
+      transition: background 0.2s;
+    }
+    .add-link-btn:hover {
+      background: #4338ca;
+    }
+    .generate-btn {
+      width: 100%;
+      background: #10b981;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 1rem;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.2s;
+    }
+    .generate-btn:hover {
+      background: #059669;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem 0.5rem;
+        max-width: 98vw;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Article Generator</h2>
+    <form id="generator-form" autocomplete="off">
+      <label for="model">Model</label>
+      <select id="model" name="model" required>
+        <option value="gpt-4">GPT-4</option>
+        <option value="gpt-3.5">GPT-3.5</option>
+      </select>
+
+      <label for="prompt">Custom Prompt</label>
+      <textarea id="prompt" name="prompt" rows="3" placeholder="Enter your custom prompt..." required></textarea>
+
+      <div class="affiliate-links">
+        <label for="affiliate-links-textarea">Affiliate Links (one per line)</label>
+        <textarea id="affiliate-links-textarea" name="affiliate-links" rows="3" placeholder="Paste each affiliate link on a new line..."></textarea>
+      </div>
+
+      <label for="tone">Article Tone</label>
+      <select id="tone" name="tone" required>
+        <option value="Formal">Formal</option>
+        <option value="Casual">Casual</option>
+        <option value="Witty">Witty</option>
+      </select>
+
+      <label for="tags">Tags (comma separated)</label>
+      <input type="text" id="tags" name="tags" placeholder="e.g. ai, writing, tech" required />
+
+      <label for="num-articles">Number of Articles</label>
+      <input type="number" id="num-articles" name="num-articles" min="1" max="20" value="1" required />
+
+      <label for="openai-key">OpenAI API Key</label>
+      <input type="password" id="openai-key" name="openai-key" autocomplete="new-password" required />
+
+      <label for="github-token">GitHub Token</label>
+      <input type="password" id="github-token" name="github-token" autocomplete="new-password" required />
+
+      <label for="repo">GitHub Repo Name</label>
+      <input type="text" id="repo" name="repo" placeholder="username/repo" required />
+
+      <label for="branch">Branch Name</label>
+      <input type="text" id="branch" name="branch" placeholder="main" value="main" required />
+
+      <button type="submit" class="generate-btn">Generate</button>
+    </form>
+  </div>
+  <script>
+    // LocalStorage keys
+    const LS_KEY = 'articleGenForm';
+    // Fields to persist (excluding sensitive fields)
+    const persistFields = [
+      'model', 'prompt', 'affiliate-links', 'tone', 'tags', 'num-articles', 'repo', 'branch'
+    ];
+
+    // Restore form from localStorage
+    function restoreForm() {
+      const saved = localStorage.getItem(LS_KEY);
+      if (!saved) return;
+      try {
+        const data = JSON.parse(saved);
+        persistFields.forEach(field => {
+          const el = document.getElementById(field.replace(/-/g, '-'));
+          if (el && data[field] !== undefined) {
+            if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+              el.value = data[field];
+            }
+          }
+        });
+      } catch {}
+    }
+
+    // Save form to localStorage
+    function saveForm() {
+      const data = {};
+      persistFields.forEach(field => {
+        const el = document.getElementById(field.replace(/-/g, '-'));
+        if (el) data[field] = el.value;
+      });
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+    }
+
+    // Attach listeners to persist fields
+    window.addEventListener('DOMContentLoaded', () => {
+      restoreForm();
+      persistFields.forEach(field => {
+        const el = document.getElementById(field.replace(/-/g, '-'));
+        if (el) {
+          el.addEventListener('input', saveForm);
+        }
+      });
+    });
+
+    // Utility to generate a random short ID
+    function randomID(length = 6) {
+      return Math.random().toString(36).substr(2, length);
+    }
+
+    // Utility to save a file locally (browser download)
+    function saveMarkdownFile(content, date) {
+      const id = randomID();
+      const filename = `article-${date}-${id}.md`;
+      // Path for user reference, but browsers only save to Downloads
+      const fullPath = `src/content/blog/${filename}`;
+      const blob = new Blob([content], { type: 'text/markdown' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fullPath;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      }, 100);
+    }
+
+    // Form submission
+    document.getElementById('generator-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        model: form.model.value,
+        prompt: form.prompt.value,
+        affiliateLinks: form['affiliate-links-textarea'].value.split('\n').map(l => l.trim()).filter(Boolean),
+        tone: form.tone.value,
+        tags: form.tags.value.split(',').map(t => t.trim()).filter(Boolean),
+        numArticles: parseInt(form['num-articles'].value, 10),
+        openaiKey: form['openai-key'].value,
+        githubToken: form['github-token'].value,
+        repo: form.repo.value,
+        branch: form.branch.value
+      };
+      // Call the article generation function
+      const markdown = await generateArticleMarkdown(data);
+      if (markdown) {
+        console.log('Generated Markdown Article:', markdown);
+        // Extract date for filename
+        const today = new Date().toISOString().slice(0, 10);
+        saveMarkdownFile(markdown, today);
+        alert('Article generated and saved! Check your downloads for the Markdown file.');
+      }
+    });
+
+    /**
+     * Generates an article using OpenAI API and returns cleaned Markdown.
+     * @param {Object} data - Form data
+     * @returns {Promise<string>} Markdown content
+     */
+    async function generateArticleMarkdown(data) {
+      const { model, prompt, affiliateLinks, tone, tags, openaiKey } = data;
+      // Compose the system and user prompt
+      const today = new Date().toISOString().slice(0, 10);
+      const systemPrompt = `You are an expert article writer. Write a high-quality article in Markdown with YAML frontmatter. Structure:\n---\ntitle: <title>\ndescription: <description>\ntags: [${tags.join(', ')}]\ncover: <cover image url or leave blank>\ndate: ${today}\n---\n\n# <title>\n\n<description>\n\n<markdown content>\n\nDo not include repeated 'Title:' or 'Summary:' in the content. Do not use bold markers (**).`;
+      let affiliateSection = '';
+      if (affiliateLinks.length > 0) {
+        affiliateSection = '\n\n## Affiliate Links\n' + affiliateLinks.map(l => `- ${l}`).join('\n');
+      }
+      const userPrompt = `${prompt}\n\nTone: ${tone}.${affiliateSection}`;
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: model === 'gpt-4' ? 'gpt-4' : 'gpt-3.5-turbo',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            max_tokens: 2048,
+            temperature: 0.7
+          })
+        });
+        if (!response.ok) {
+          alert('OpenAI API error: ' + response.statusText);
+          return '';
+        }
+        const result = await response.json();
+        let content = result.choices?.[0]?.message?.content || '';
+        // Clean up: remove repeated 'Title:' or 'Summary:'
+        content = content.replace(/^(#+\s*)?(Title|Summary):.*$/gim, '');
+        // Remove bold markers
+        content = content.replace(/\*\*(.*?)\*\*/g, '$1');
+        // Remove extra blank lines
+        content = content.replace(/\n{3,}/g, '\n\n');
+        return content.trim();
+      } catch (err) {
+        alert('Failed to generate article: ' + err.message);
+        return '';
+      }
+    }
+  </script>
+</body>
+</html> 
