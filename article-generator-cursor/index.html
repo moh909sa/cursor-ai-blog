@@ -118,6 +118,7 @@
   </style>
 </head>
 <body>
+  <div id="progress" style="text-align:center; font-size:1.1rem; margin-bottom:1rem;"></div>
   <div class="container">
     <h2>Article Generator</h2>
     <form id="generator-form" autocomplete="off">
@@ -164,6 +165,15 @@
     </form>
   </div>
   <script>
+    // Basic password protection
+    (function() {
+      const pw = prompt('Enter password:');
+      if (pw !== 'mySecret123') {
+        alert('Incorrect password.');
+        window.location = 'about:blank';
+      }
+    })();
+
     // LocalStorage keys
     const LS_KEY = 'articleGenForm';
     // Fields to persist (excluding sensitive fields)
@@ -232,6 +242,11 @@
       }, 100);
     }
 
+    // Utility to update progress display
+    function setProgress(msg) {
+      document.getElementById('progress').textContent = msg;
+    }
+
     // Form submission
     document.getElementById('generator-form').addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -248,15 +263,19 @@
         repo: form.repo.value,
         branch: form.branch.value
       };
-      // Call the article generation function
-      const markdown = await generateArticleMarkdown(data);
-      if (markdown) {
-        console.log('Generated Markdown Article:', markdown);
-        // Extract date for filename
-        const today = new Date().toISOString().slice(0, 10);
-        saveMarkdownFile(markdown, today);
-        alert('Article generated and saved! Check your downloads for the Markdown file.');
+      const total = data.numArticles;
+      let finished = 0;
+      for (let i = 0; i < total; i++) {
+        setProgress(`Generating article ${i+1} of ${total}...`);
+        const markdown = await generateArticleMarkdown(data);
+        if (markdown) {
+          const today = new Date().toISOString().slice(0, 10);
+          saveMarkdownFile(markdown, today);
+          finished++;
+        }
       }
+      setProgress(`✅ Finished generating ${finished} article${finished !== 1 ? 's' : ''}.`);
+      alert('Article generation complete!');
     });
 
     /**

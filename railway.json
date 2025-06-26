@@ -1,0 +1,9 @@
+{
+    "build": {
+      "builder": "static"
+    },
+    "static": {
+      "publicDir": ".",
+      "index": "index.html"
+    }
+  }
