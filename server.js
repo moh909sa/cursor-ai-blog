@@ -71,22 +71,27 @@ app.post('/api/generate', async (req, res) => {
 
 async function generateArticle(model, prompt, affiliateLinks, tone, tags, openaiKey) {
   const today = new Date().toISOString().slice(0, 10);
-  const systemPrompt = `You are an expert article writer. Write a high-quality article in Markdown with YAML frontmatter. Structure:
+  const systemPrompt = `You are an expert article writer. Write a high-quality article in Markdown with proper YAML frontmatter for Astro. 
+
+Structure the frontmatter exactly like this:
 ---
-title: <title>
-description: <description>
-tags: [${tags.join(', ')}]
-cover: <cover image url or leave blank>
+title: "Your Article Title"
+description: "A brief description of the article"
 date: ${today}
+tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]
+cover: "/covers/image-name.png"
 ---
 
-# <title>
+# Your Article Title
 
-<description>
+Your article content here...
 
-<markdown content>
-
-Do not include repeated 'Title:' or 'Summary:' in the content. Do not use bold markers (**).`;
+Important:
+- Use proper YAML syntax with quotes around strings
+- Do not include "Title:" or "Summary:" in the body content
+- Do not use bold markers (**)
+- Make sure the title in the frontmatter matches the H1 title in the body
+- Keep the description concise and engaging`;
 
   let affiliateSection = '';
   if (affiliateLinks.length > 0) {
@@ -118,16 +123,105 @@ Do not include repeated 'Title:' or 'Summary:' in the content. Do not use bold m
   const result = await response.json();
   let content = result.choices?.[0]?.message?.content || '';
   
-  // Extract title from frontmatter
-  const titleMatch = content.match(/title:\s*(.+)/i);
+  // Extract title from frontmatter for cover image generation
+  const titleMatch = content.match(/title:\s*["']([^"']+)["']/i);
   const title = titleMatch ? titleMatch[1].trim() : 'Article';
   
-  // Clean up content
+  // Clean up content - remove any extra Title/Summary lines
   content = content.replace(/^(#+\s*)?(Title|Summary):.*$/gim, '');
   content = content.replace(/\*\*(.*?)\*\*/g, '$1');
   content = content.replace(/\n{3,}/g, '\n\n');
   
+  // Ensure proper YAML frontmatter format
+  content = fixFrontmatterFormat(content, today, tags);
+  
   return { title, content: content.trim() };
+}
+
+function fixFrontmatterFormat(content, date, tags) {
+  // Split content into frontmatter and body
+  const parts = content.split('---');
+  
+  if (parts.length < 3) {
+    // If no proper frontmatter, create one
+    const title = extractTitleFromBody(content);
+    return `---
+title: "${title}"
+description: "Generated article"
+date: ${date}
+tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]
+cover: ""
+---
+
+${content}`;
+  }
+  
+  const frontmatter = parts[1].trim();
+  const body = parts.slice(2).join('---').trim();
+  
+  // Parse and fix frontmatter
+  const lines = frontmatter.split('\n');
+  const fixedLines = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    if (trimmed.startsWith('title:')) {
+      const title = extractTitleFromLine(line);
+      fixedLines.push(`title: "${title}"`);
+    } else if (trimmed.startsWith('description:')) {
+      const desc = extractValueFromLine(line);
+      fixedLines.push(`description: "${desc}"`);
+    } else if (trimmed.startsWith('date:')) {
+      fixedLines.push(`date: ${date}`);
+    } else if (trimmed.startsWith('tags:')) {
+      fixedLines.push(`tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]`);
+    } else if (trimmed.startsWith('cover:')) {
+      // Keep cover line but will be updated later
+      fixedLines.push(line);
+    } else {
+      // Keep other lines as-is
+      fixedLines.push(line);
+    }
+  }
+  
+  // Ensure all required fields are present
+  const hasTitle = fixedLines.some(line => line.startsWith('title:'));
+  const hasDescription = fixedLines.some(line => line.startsWith('description:'));
+  const hasDate = fixedLines.some(line => line.startsWith('date:'));
+  const hasTags = fixedLines.some(line => line.startsWith('tags:'));
+  
+  if (!hasTitle) {
+    const title = extractTitleFromBody(body);
+    fixedLines.unshift(`title: "${title}"`);
+  }
+  if (!hasDescription) {
+    fixedLines.splice(1, 0, 'description: "Generated article"');
+  }
+  if (!hasDate) {
+    fixedLines.splice(2, 0, `date: ${date}`);
+  }
+  if (!hasTags) {
+    fixedLines.splice(3, 0, `tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]`);
+  }
+  
+  return `---\n${fixedLines.join('\n')}\n---\n\n${body}`;
+}
+
+function extractTitleFromLine(line) {
+  const match = line.match(/title:\s*["']?([^"'\n]+)["']?/i);
+  return match ? match[1].trim() : 'Article';
+}
+
+function extractValueFromLine(line) {
+  const match = line.match(/:\s*["']?([^"'\n]+)["']?/i);
+  return match ? match[1].trim() : '';
+}
+
+function extractTitleFromBody(body) {
+  const h1Match = body.match(/^#\s+(.+)$/m);
+  return h1Match ? h1Match[1].trim() : 'Article';
 }
 
 async function generateCoverImage(title, tags) {
@@ -194,7 +288,7 @@ async function generateCoverImage(title, tags) {
 }
 
 function updateArticleFrontmatter(content, imageFilename) {
-  return content.replace(/cover:\s*.*/g, `cover: /covers/${imageFilename}`);
+  return content.replace(/cover:\s*.*/g, `cover: "/covers/${imageFilename}"`);
 }
 
 async function uploadToGitHub(octokit, owner, repo, branch, baseTreeSha, files) {
