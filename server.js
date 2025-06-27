@@ -421,4 +421,3 @@ async function uploadToGitHub(octokit, owner, repo, branch, baseTreeSha, files) 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }); 
-}); 
