@@ -141,77 +141,58 @@ Important:
 function fixFrontmatterFormat(content, date, tags) {
   // Split content into frontmatter and body
   const parts = content.split('---');
-  
-  if (parts.length < 3) {
-    // If no proper frontmatter, create one
-    const title = extractTitleFromBody(content);
-    return `---
-title: "${title}"
-description: "Generated article"
-date: ${date}
-tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]
-cover: ""
----
+  let title = '';
+  let description = '';
+  let cover = '';
+  let body = '';
 
-${content}`;
-  }
-  
-  const frontmatter = parts[1].trim();
-  const body = parts.slice(2).join('---').trim();
-  
-  // Parse and fix frontmatter
-  const lines = frontmatter.split('\n');
-  const fixedLines = [];
-  
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    
-    if (trimmed.startsWith('title:')) {
-      const title = extractTitleFromLine(line);
-      fixedLines.push(`title: "${title}"`);
-    } else if (trimmed.startsWith('description:')) {
-      const desc = extractValueFromLine(line);
-      fixedLines.push(`description: "${desc}"`);
-    } else if (trimmed.startsWith('date:')) {
-      fixedLines.push(`date: ${date}`);
-    } else if (trimmed.startsWith('tags:')) {
-      fixedLines.push(`tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]`);
-    } else if (trimmed.startsWith('cover:')) {
-      // Keep cover line but will be updated later
-      fixedLines.push(line);
-    } else {
-      // Keep other lines as-is
-      fixedLines.push(line);
+  if (parts.length >= 3) {
+    // Parse frontmatter
+    const frontmatter = parts[1].trim();
+    body = parts.slice(2).join('---').trim();
+
+    // Extract fields
+    for (const line of frontmatter.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('title:')) {
+        title = extractTitleFromLine(line);
+      } else if (trimmed.startsWith('description:')) {
+        description = extractValueFromLine(line);
+      } else if (trimmed.startsWith('cover:')) {
+        cover = extractValueFromLine(line);
+      }
     }
+  } else {
+    // No frontmatter, try to extract from body
+    body = parts.join('---').trim();
   }
-  
-  // Ensure all required fields are present
-  const hasTitle = fixedLines.some(line => line.startsWith('title:'));
-  const hasDescription = fixedLines.some(line => line.startsWith('description:'));
-  const hasDate = fixedLines.some(line => line.startsWith('date:'));
-  const hasTags = fixedLines.some(line => line.startsWith('tags:'));
-  
-  if (!hasTitle) {
-    const title = extractTitleFromBody(body);
-    fixedLines.unshift(`title: "${title}"`);
-  }
-  if (!hasDescription) {
-    fixedLines.splice(1, 0, 'description: "Generated article"');
-  }
-  if (!hasDate) {
-    fixedLines.splice(2, 0, `date: ${date}`);
-  }
-  if (!hasTags) {
-    fixedLines.splice(3, 0, `tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]`);
-  }
-  
-  return `---\n${fixedLines.join('\n')}\n---\n\n${body}`;
+
+  // Fallbacks if missing
+  if (!title) title = extractTitleFromBody(body);
+  if (!description) description = extractDescriptionFromBody(body);
+  if (!cover) cover = '';
+
+  // Clean up body: remove any Title: or Summary: lines
+  body = body.replace(/^(#+\s*)?(Title|Summary):.*$/gim, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\n{3,}/g, '\n\n').trim();
+
+  // Compose valid YAML frontmatter
+  const yaml = [
+    '---',
+    `title: "${title.replace(/"/g, '\\"')}"`,
+    `description: "${description.replace(/"/g, '\\"')}"`,
+    `date: ${date}`,
+    `tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]`,
+    `cover: "${cover}"`,
+    '---',
+    ''
+  ].join('\n');
+
+  return `${yaml}${body}`;
 }
 
 function extractTitleFromLine(line) {
   const match = line.match(/title:\s*["']?([^"'\n]+)["']?/i);
-  return match ? match[1].trim() : 'Article';
+  return match ? match[1].trim() : '';
 }
 
 function extractValueFromLine(line) {
@@ -221,7 +202,28 @@ function extractValueFromLine(line) {
 
 function extractTitleFromBody(body) {
   const h1Match = body.match(/^#\s+(.+)$/m);
-  return h1Match ? h1Match[1].trim() : 'Article';
+  if (h1Match) return h1Match[1].trim();
+  // Fallback: first non-empty line
+  const firstLine = body.split('\n').find(l => l.trim());
+  return firstLine ? firstLine.trim().replace(/^#+\s*/, '') : 'Untitled Article';
+}
+
+function extractDescriptionFromBody(body) {
+  // Try to find the first paragraph after the H1
+  const lines = body.split('\n');
+  let foundH1 = false;
+  for (const line of lines) {
+    if (!foundH1 && /^#\s+/.test(line)) {
+      foundH1 = true;
+      continue;
+    }
+    if (foundH1 && line.trim()) {
+      // Return the first non-empty line after H1
+      return line.trim().replace(/"/g, '\\"');
+    }
+  }
+  // Fallback
+  return 'Generated article';
 }
 
 async function generateCoverImage(title, tags) {
