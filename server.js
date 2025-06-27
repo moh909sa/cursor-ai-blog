@@ -91,7 +91,8 @@ Important:
 - Do not include "Title:" or "Summary:" in the body content
 - Do not use bold markers (**)
 - Make sure the title in the frontmatter matches the H1 title in the body
-- Keep the description concise and engaging`;
+- Keep the description concise and engaging
+- Write a compelling first paragraph that can serve as the description`;
 
   let affiliateSection = '';
   if (affiliateLinks.length > 0) {
@@ -132,13 +133,13 @@ Important:
   content = content.replace(/\*\*(.*?)\*\*/g, '$1');
   content = content.replace(/\n{3,}/g, '\n\n');
   
-  // Ensure proper YAML frontmatter format
-  content = fixFrontmatterFormat(content, today, tags);
+  // Ensure proper YAML frontmatter format with emoji suggestions
+  content = fixFrontmatterFormat(content, today, tags, prompt);
   
   return { title, content: content.trim() };
 }
 
-function fixFrontmatterFormat(content, date, tags) {
+function fixFrontmatterFormat(content, date, tags, prompt) {
   // Split content into frontmatter and body
   const parts = content.split('---');
   let title = '';
@@ -172,22 +173,97 @@ function fixFrontmatterFormat(content, date, tags) {
   if (!description) description = extractDescriptionFromBody(body);
   if (!cover) cover = '';
 
+  // Add emoji to title based on topic
+  title = addEmojiToTitle(title, tags, prompt);
+
   // Clean up body: remove any Title: or Summary: lines
-  body = body.replace(/^(#+\s*)?(Title|Summary):.*$/gim, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\n{3,}/g, '\n\n').trim();
+  body = body.replace(/^(#+\s*)?(Title|Summary):.*$/gim, '');
+  body = body.replace(/\*\*(.*?)\*\*/g, '$1');
+  body = body.replace(/\n{3,}/g, '\n\n');
+  body = body.trim();
+
+  // Ensure body starts with H1 title
+  if (!body.startsWith('# ')) {
+    body = `# ${title}\n\n${body}`;
+  }
 
   // Compose valid YAML frontmatter
   const yaml = [
     '---',
-    `title: "${title.replace(/"/g, '\\"')}"`,
-    `description: "${description.replace(/"/g, '\\"')}"`,
+    `title: "${escapeYamlString(title)}"`,
+    `description: "${escapeYamlString(description)}"`,
     `date: ${date}`,
-    `tags: [${tags.map(t => `"${t.trim()}"`).join(', ')}]`,
+    `tags: [${tags.map(t => `"${escapeYamlString(t.trim())}"`).join(', ')}]`,
     `cover: "${cover}"`,
     '---',
     ''
   ].join('\n');
 
   return `${yaml}${body}`;
+}
+
+function addEmojiToTitle(title, tags, prompt) {
+  const emojiMap = {
+    'ai': '🤖',
+    'artificial intelligence': '🤖',
+    'machine learning': '🧠',
+    'tech': '💻',
+    'technology': '💻',
+    'programming': '⚡',
+    'coding': '⚡',
+    'web': '🌐',
+    'design': '🎨',
+    'writing': '✍️',
+    'blog': '📝',
+    'marketing': '📈',
+    'business': '💼',
+    'finance': '💰',
+    'health': '🏥',
+    'fitness': '💪',
+    'food': '🍽️',
+    'travel': '✈️',
+    'music': '🎵',
+    'gaming': '🎮',
+    'sports': '⚽',
+    'education': '📚',
+    'science': '🔬',
+    'space': '🚀',
+    'environment': '🌱',
+    'sustainability': '🌱'
+  };
+
+  // Check tags first
+  for (const tag of tags) {
+    const lowerTag = tag.toLowerCase();
+    if (emojiMap[lowerTag]) {
+      return `${emojiMap[lowerTag]} ${title}`;
+    }
+  }
+
+  // Check prompt content
+  const lowerPrompt = prompt.toLowerCase();
+  for (const [keyword, emoji] of Object.entries(emojiMap)) {
+    if (lowerPrompt.includes(keyword)) {
+      return `${emoji} ${title}`;
+    }
+  }
+
+  // Default emoji based on common patterns
+  if (lowerPrompt.includes('ai') || lowerPrompt.includes('artificial intelligence')) {
+    return `🤖 ${title}`;
+  } else if (lowerPrompt.includes('tech') || lowerPrompt.includes('programming')) {
+    return `💻 ${title}`;
+  } else if (lowerPrompt.includes('writing') || lowerPrompt.includes('blog')) {
+    return `✍️ ${title}`;
+  }
+
+  // Fallback emoji
+  return `📝 ${title}`;
+}
+
+function escapeYamlString(str) {
+  if (!str) return '';
+  return str.replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
 }
 
 function extractTitleFromLine(line) {
@@ -212,18 +288,27 @@ function extractDescriptionFromBody(body) {
   // Try to find the first paragraph after the H1
   const lines = body.split('\n');
   let foundH1 = false;
+  let description = '';
+  
   for (const line of lines) {
     if (!foundH1 && /^#\s+/.test(line)) {
       foundH1 = true;
       continue;
     }
-    if (foundH1 && line.trim()) {
-      // Return the first non-empty line after H1
-      return line.trim().replace(/"/g, '\\"');
+    if (foundH1 && line.trim() && !line.startsWith('#')) {
+      // Return the first non-empty, non-heading line after H1
+      description = line.trim();
+      break;
     }
   }
-  // Fallback
-  return 'Generated article';
+  
+  // If no description found, create one from the title
+  if (!description) {
+    const title = extractTitleFromBody(body);
+    description = `Learn more about ${title.toLowerCase()}.`;
+  }
+  
+  return description;
 }
 
 async function generateCoverImage(title, tags) {
@@ -335,4 +420,5 @@ async function uploadToGitHub(octokit, owner, repo, branch, baseTreeSha, files) 
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+}); 
 }); 
